@@ -32,32 +32,33 @@
                         </div>
                     </div>
                     <!-- /Page Header -->
-
-                    <form action="{{ url_for('student_edit', student_id=data.id) }}" method="post">
+                    <form action="{{ url_for('student_edit', student_id=student.id) }}" method="post">
+                        {{ form.hidden_tag() }}
                         <div class="form-group">
-                            <label>Student Name</label>
-                            <input type="text" id="student_name" name="student_name" class="form-control"  value="{{data.student_name}}">
+                            <label>{{ form.student_name.label }}</label>
+                            {{ form.student_name(class="form-control") }}
                         </div>
                         <div class="form-group">
-                            <label>Phone</label>
-                            <input type="number" id="phone" name="phone" class="form-control" value="{{data.phone}}">
+                            <label>{{ form.email.label }}</label>
+                            {{ form.email(class="form-control") }}
                         </div>
                         <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" id="email" name="email" class="form-control" value="{{data.email}}">
+                            <label>{{ form.phone.label }}</label>
+                            {{ form.phone(class="form-control") }}
                         </div>
                         <div class="form-group">
-                            <label>Adress</label>
-                            <input type="text" id="address" name="address" class="form-control" value="{{data.address}}" >
+                            <label>{{ form.course.label }}</label>
+                            {{ form.course(class="form-control") }}
                         </div>
                         <div class="form-group">
-                            <label>Course</label>
-                            <input type="text" id="course" name="course" class="form-control" value="{{data.course}}" >
+                            <label>{{ form.address.label }}</label>
+                            {{ form.address(class="form-control") }}
                         </div>
                         <div class="submit-section">
-                            <button class="btn btn-primary submit-btn" type="submit">Update student</button>
+                            {{ form.submit(class="btn btn-primary") }}
                         </div>
                     </form>
+                    
                 </div>
             </div>
         </div>

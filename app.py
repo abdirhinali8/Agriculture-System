@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
-from wtforms.validators import DataRequired, Email, Optional
+from wtforms.validators import DataRequired, Email, Length, Optional
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:12345@127.0.0.1/admin'
@@ -51,6 +51,13 @@ class Customer(db.Model):
         db.session.delete(self)
         db.session.commit()
 
+class CustomerForm(FlaskForm):
+    customer_name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    phone = StringField('Phone', validators=[DataRequired(), Length(min=10, max=15)])
+    address = StringField('Address', validators=[Length(max=200)])
+    submit = SubmitField('Add Customer')
+
 class Student(db.Model):
     __tablename__ = 'student'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -79,6 +86,21 @@ class StudentForm(FlaskForm):
     phone = StringField('Phone', validators=[Optional()])
     address = StringField('Address', validators=[Optional()])
     course = StringField('Course', validators=[Optional()])
+    submit = SubmitField('Add Student')  # Add this line for the submit button
+
+
+
+class StudentEditForm(FlaskForm):
+    student_name = StringField('Student Name', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    phone = StringField('Phone', validators=[DataRequired()])
+    course = StringField('Course', validators=[DataRequired()])
+    address = StringField('Address', validators=[Optional()])
+    submit = SubmitField('Save Changes')
+
+
+class DeleteForm(FlaskForm):
+    submit = SubmitField('Confirm Delete')
 
 # Routes
 @app.route('/')
@@ -121,7 +143,7 @@ def user_add():
         return redirect(url_for('user'))
     
     return render_template('user/user_add.html')
-
+  
 
 @app.route('/user/edit/<int:user_id>', methods=['GET', 'POST'])
 def user_edit(user_id):
@@ -173,31 +195,22 @@ def customer():
 
 @app.route('/customer/add', methods=['GET', 'POST'])
 def customer_add():
-    if request.method == 'POST':
-        # Get form data
-        customer_name = request.form['customer_name']
-        email = request.form['email']
-        phone = request.form['phone']
-        address = request.form['address']
-
-        # Validation checks
-        if not customer_name or not email or not phone:
-            flash('Name, Email, and Phone are required!', 'error')
-            return redirect(url_for('customer_add'))
-
+    form = CustomerForm()
+    if form.validate_on_submit():  # Handles CSRF and validation
         # Create and save a new customer
         new_customer = Customer(
-            customer_name=customer_name,
-            email=email,
-            phone=phone,
-            address=address
+            customer_name=form.customer_name.data,
+            email=form.email.data,
+            phone=form.phone.data,
+            address=form.address.data
         )
-        new_customer.save()
+        new_customer.save()  # Assuming `save()` is implemented in your model
 
-        flash(f"Customer {customer_name} added successfully!", 'success')
-        return redirect(url_for('customer'))
+        flash(f"Customer {form.customer_name.data} added successfully!", 'success')
+        return redirect(url_for('customer'))  # Redirect to the customer list
 
-    return render_template('customer/customer_add.html')
+    # Render the template with the form
+    return render_template('customer/customer_add.html', form=form)
 
 
 @app.route('/customer/edit/<int:customer_id>', methods=['GET', 'POST'])
@@ -252,28 +265,18 @@ def student():
 @app.route('/student/add', methods=['GET', 'POST'])
 def student_add():
     form = StudentForm()
-    if form.validate_on_submit():
-        student_name = form.student_name.data
-        email = request.form['email']
-        phone = request.form['phone']
-        address = request.form['address']
-        course = request.form['course']
-
-
-        if not student_name or not email or not phone:
-            flash('Name, Email, and Phone are required!', 'error')
-            return redirect(url_for('student_add'))
-
+    if form.validate_on_submit(): 
+        form.populate_obj(student)
         new_student = Student(
-            student_name=student_name,
-            email=email,
-            phone=phone,
-            address=address,
-            course=course,
+            student_name=form.student_name.data,
+            email=form.email.data,
+            phone=form.phone.data,
+            address=form.address.data,
+            course=form.course.data,
         )
         new_student.save()
 
-        flash(f"Student {student_name} added successfully!", 'success')
+        flash(f"Student {new_student.student_name} added successfully!", 'success')
         return redirect(url_for('student'))
 
     return render_template('student/student_add.html', form=form)
@@ -283,42 +286,32 @@ def student_add():
 @app.route('/student/edit/<int:student_id>', methods=['GET', 'POST'])
 def student_edit(student_id):
     student = Student.query.get_or_404(student_id)  # Fetch student or return 404
-    if request.method == 'POST':
-        # Get and validate form data
-        student_name = request.form['student_name']
-        email = request.form['email']
-        phone = request.form['phone']
-        course = request.form['course']
-        address = request.form['address']
+    form = StudentEditForm(obj=student)  # Populate form with existing data
 
-        # Validation checks
-        if not student_name or not email or not phone or not course:
-            flash('Name, Email, Phone, and Course are required!', 'error')
-            return redirect(url_for('student_edit', student_id=student_id))
-
-        # Update student fields
-        student.student_name = student_name
-        student.email = email
-        student.phone = phone
-        student.course = course
-        student.address = address
+    if form.validate_on_submit():  # Handle POST request
+        # Update student fields from validated form data
+        form.populate_obj(student)
         student.save()
 
-        flash(f"Student {student_name} updated successfully!", 'success')
+        flash(f"Student {student.student_name} updated successfully!", 'success')
         return redirect(url_for('student'))
 
-    return render_template('student/student_edit.html', data=student)
+    return render_template('student/student_edit.html', form=form, student=student)
+
 
 
 @app.route('/student/delete/<int:student_id>', methods=['GET', 'POST'])
 def student_delete(student_id):
-    student = Student.query.get_or_404(student_id)  # Fetch student or return 404
-    if request.method == 'POST':
-        student.delete()
-        flash(f"Student {student.student_name} deleted successfully!", 'success')
-        return redirect(url_for('student'))
+    student = Student.query.get_or_404(student_id)  # Fetch the student or return 404
+    form = DeleteForm()
 
-    return render_template('student/student_delete.html', data=student)
+    if form.validate_on_submit():  # If the form is submitted and valid
+        student.delete()  # Delete the student
+        flash(f"Student {student.student_name} deleted successfully!", 'success')
+        return redirect(url_for('student'))  # Redirect to the student list page
+
+    # Render the delete confirmation template
+    return render_template('student/student_delete.html', form=form,  data=student)
 
 
 
